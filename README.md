@@ -1,3 +1,50 @@
-encoded string with addresses and stuff. API symbolizes the addresses. addr2line-pdb
+[![Crates.io](https://img.shields.io/crates/v/resym.svg)](https://crates.io/crates/resym)
 
-https://github.com/oven-sh/bun.report/
+[Documentation](https://docs.rs/resym) | [Example](example/)
+
+# `resym`
+
+Serialize and symbolicate stack traces from remotely located PDB.
+
+```toml
+[dependencies]
+resym = "0.1"
+```
+
+Here's an example:
+
+```rust
+// your application
+
+fn set_panic_hook() {
+  std::panic::set_hook(Box::new(move |info| {
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    {
+      let trace_str = resym::win64::trace();
+      println!("Visit to symbolicate: http://<resym_svc>/{}", trace_str);
+    }
+  }));
+}
+
+fn main() {
+  set_panic_hook();
+
+  panic!("oh no!");
+}
+```
+
+```rust
+// your symbolification service
+
+// GET /<trace_str>
+fn handle_request(mut trace_str: Vec<u8>) -> Result<String> {
+  let mut writer = Vec::new();
+  let stream = std::fs::File::open("example.pdb")?;
+
+  resym::symbolize(stream, &mut trace_str, &mut writer)?;
+
+  Ok(String::from_utf8(writer)?)
+}
+```
+
+![image](https://github.com/user-attachments/assets/6038069b-acbc-4ce6-b6bf-4849b7c9edb2)

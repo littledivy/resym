@@ -1,17 +1,15 @@
 [package]
-name = "deno_symbolizer"
+name = "resym"
 authors = ["Divy Srivastava <dj.srivastava23@gmail.com>"]
 version = "0.1.0"
+repository = "https://github.com/littledivy/resym"
 edition = "2021"
+description = "Serialize and symbolicate stack traces from remotely located PBD"
+license = "Apache-2.0"
+
+[lib]
+path = "src/lib.rs"
 
 [dependencies]
-axum = "0.8.1"
-dotenv = "0.15.0"
-serde = { version = "1.0.217", features = ["derive"] }
 vlq = "0.5.1"
-thiserror = "2.0.11"
-tokio = { version = "1.43.0", features = ["full"] }
-tower-http = { version = "0.6.2", features = ["cors"] }
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 pdb-addr2line = "0.11.1"

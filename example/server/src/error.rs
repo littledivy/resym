@@ -4,11 +4,11 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub(crate) enum ApiError {
-  #[error("Reached maximum number of referrals")]
+  #[error("Invalid trace frame string")]
   InvalidFrameString,
 
   #[error("PDB error: {0}")]
-  PdbError(#[from] pdb_addr2line::Error),
+  PdbError(#[from] resym::pdb_addr2line::Error),
 }
 
 impl IntoResponse for ApiError {
