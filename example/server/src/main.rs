@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use axum::{extract::Path, routing::get, Router};
-use resym::symbolize;
+use resym::{symbolicate, DefaultFormatter};
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -30,7 +30,8 @@ async fn get_stack_trace(
   let stream = std::fs::File::open("example.pdb").unwrap();
 
   let mut writer = Vec::new();
-  symbolize(stream, &mut input, &mut writer).map_err(ApiError::PdbError)?;
+  symbolicate(stream, &mut input, DefaultFormatter::new(&mut writer))
+    .map_err(ApiError::Resym)?;
 
   Ok(String::from_utf8(writer).unwrap())
 }

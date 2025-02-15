@@ -41,7 +41,7 @@ fn handle_request(mut trace_str: Vec<u8>) -> Result<String> {
   let mut writer = Vec::new();
   let stream = std::fs::File::open("example.pdb")?;
 
-  resym::symbolize(stream, &mut trace_str, &mut writer)?;
+  resym::symbolicate(stream, &mut trace_str, resym::DefaultFormatter::new(&mut writer))?;
 
   Ok(String::from_utf8(writer)?)
 }

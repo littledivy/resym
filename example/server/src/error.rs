@@ -7,8 +7,8 @@ pub(crate) enum ApiError {
   #[error("Invalid trace frame string")]
   InvalidFrameString,
 
-  #[error("PDB error: {0}")]
-  PdbError(#[from] resym::pdb_addr2line::Error),
+  #[error("Resym error: {0}")]
+  Resym(#[from] resym::Error),
 }
 
 impl IntoResponse for ApiError {
@@ -20,7 +20,7 @@ impl IntoResponse for ApiError {
 
     let status = match self {
       Self::InvalidFrameString => http::StatusCode::BAD_REQUEST,
-      Self::PdbError(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
+      Self::Resym(_) => http::StatusCode::INTERNAL_SERVER_ERROR,
     };
 
     let message = format!("{}", self);
