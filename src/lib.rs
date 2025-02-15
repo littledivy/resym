@@ -16,6 +16,8 @@ use pdb_addr2line::pdb;
 
 pub use pdb_addr2line;
 
+mod vlq;
+
 pub fn symbolize<
   's,
   S: pdb::Source<'s> + Send + 's,
@@ -29,7 +31,7 @@ pub fn symbolize<
   let context_data = pdb_addr2line::ContextPdbData::try_from_pdb(pdb)?;
   let context = context_data.make_context()?;
 
-  while let Ok(address) = vlq::decode(input) {
+  while let Ok(address) = vlq::vlq_decode(input) {
     if let Some(procedure_frames) = context.find_frames(address as _)? {
       let _ = writeln!(
         writer,
@@ -57,32 +59,7 @@ pub fn symbolize<
 
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
 pub mod win64 {
-  const BASE64: &[u8; 64] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  const VLQ_MAX_IN_BYTES: usize = 7;
-
-  fn encode_vlq(value: i32, writer: &mut Vec<u8>) {
-    let mut vlq: u32 = if value >= 0 {
-      (value as u32) << 1
-    } else {
-      ((-value as u32) << 1) | 1
-    };
-
-    for i in 0..VLQ_MAX_IN_BYTES {
-      let mut digit = vlq & 31;
-      vlq >>= 5;
-
-      if vlq != 0 {
-        digit |= 32;
-      }
-
-      writer.push(BASE64[digit as usize]);
-
-      if vlq == 0 {
-        return;
-      }
-    }
-  }
+  use crate::vlq::vlq_encode;
 
   type WORD = u16;
   type DWORD = u32;
@@ -203,7 +180,7 @@ pub mod win64 {
         );
 
         let addr = addr - handle as usize;
-        encode_vlq(addr as i32, &mut encoded);
+        vlq_encode(addr as i32, &mut encoded);
 
         let mut hnd_data = 0usize;
         let mut est_frame = 0;

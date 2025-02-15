@@ -11,5 +11,4 @@ license = "Apache-2.0"
 path = "src/lib.rs"
 
 [dependencies]
-vlq = "0.5.1"
 pdb-addr2line = "0.11.1"
