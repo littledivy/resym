@@ -57,6 +57,33 @@ pub fn symbolize<
 
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
 pub mod win64 {
+  const BASE64: &[u8; 64] =
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const VLQ_MAX_IN_BYTES: usize = 7;
+
+  fn encode_vlq<W>(value: i32, writer: &mut Vec<u8>) {
+    let mut vlq: u32 = if value >= 0 {
+      (value as u32) << 1
+    } else {
+      ((-value as u32) << 1) | 1
+    };
+
+    for i in 0..VLQ_MAX_IN_BYTES {
+      let mut digit = vlq & 31;
+      vlq >>= 5;
+
+      if vlq != 0 {
+        digit |= 32;
+      }
+
+      writer.push(BASE64[digit as usize]);
+
+      if vlq == 0 {
+        return;
+      }
+    }
+  }
+
   type WORD = u16;
   type DWORD = u32;
   type DWORDLONG = u64;
@@ -64,67 +91,67 @@ pub mod win64 {
   type BOOL = i32;
 
   #[repr(C)]
-  pub struct M128A {
-    pub Low: u64,
-    pub High: i64,
+  struct M128A {
+    low: u64,
+    high: i64,
   }
 
   #[repr(C, align(16))]
-  pub struct CONTEXT {
-    pub P1Home: DWORDLONG,
-    pub P2Home: DWORDLONG,
-    pub P3Home: DWORDLONG,
-    pub P4Home: DWORDLONG,
-    pub P5Home: DWORDLONG,
-    pub P6Home: DWORDLONG,
+  struct CONTEXT {
+    P1Home: DWORDLONG,
+    P2Home: DWORDLONG,
+    P3Home: DWORDLONG,
+    P4Home: DWORDLONG,
+    P5Home: DWORDLONG,
+    P6Home: DWORDLONG,
 
-    pub ContextFlags: DWORD,
-    pub MxCsr: DWORD,
+    ContextFlags: DWORD,
+    MxCsr: DWORD,
 
-    pub SegCs: WORD,
-    pub SegDs: WORD,
-    pub SegEs: WORD,
-    pub SegFs: WORD,
-    pub SegGs: WORD,
-    pub SegSs: WORD,
-    pub EFlags: DWORD,
+    SegCs: WORD,
+    SegDs: WORD,
+    SegEs: WORD,
+    SegFs: WORD,
+    SegGs: WORD,
+    SegSs: WORD,
+    EFlags: DWORD,
 
-    pub Dr0: DWORDLONG,
-    pub Dr1: DWORDLONG,
-    pub Dr2: DWORDLONG,
-    pub Dr3: DWORDLONG,
-    pub Dr6: DWORDLONG,
-    pub Dr7: DWORDLONG,
+    Dr0: DWORDLONG,
+    Dr1: DWORDLONG,
+    Dr2: DWORDLONG,
+    Dr3: DWORDLONG,
+    Dr6: DWORDLONG,
+    Dr7: DWORDLONG,
 
-    pub Rax: DWORDLONG,
-    pub Rcx: DWORDLONG,
-    pub Rdx: DWORDLONG,
-    pub Rbx: DWORDLONG,
-    pub Rsp: DWORDLONG,
-    pub Rbp: DWORDLONG,
-    pub Rsi: DWORDLONG,
-    pub Rdi: DWORDLONG,
-    pub R8: DWORDLONG,
-    pub R9: DWORDLONG,
-    pub R10: DWORDLONG,
-    pub R11: DWORDLONG,
-    pub R12: DWORDLONG,
-    pub R13: DWORDLONG,
-    pub R14: DWORDLONG,
-    pub R15: DWORDLONG,
+    Rax: DWORDLONG,
+    Rcx: DWORDLONG,
+    Rdx: DWORDLONG,
+    Rbx: DWORDLONG,
+    Rsp: DWORDLONG,
+    Rbp: DWORDLONG,
+    Rsi: DWORDLONG,
+    Rdi: DWORDLONG,
+    R8: DWORDLONG,
+    R9: DWORDLONG,
+    R10: DWORDLONG,
+    R11: DWORDLONG,
+    R12: DWORDLONG,
+    R13: DWORDLONG,
+    R14: DWORDLONG,
+    R15: DWORDLONG,
 
-    pub Rip: DWORDLONG,
+    Rip: DWORDLONG,
 
-    pub FltSave: [u8; 512],
+    FltSave: [u8; 512],
 
-    pub VectorRegister: [M128A; 26],
-    pub VectorControl: DWORDLONG,
+    VectorRegister: [M128A; 26],
+    VectorControl: DWORDLONG,
 
-    pub DebugControl: DWORDLONG,
-    pub LastBranchToRip: DWORDLONG,
-    pub LastBranchFromRip: DWORDLONG,
-    pub LastExceptionToRip: DWORDLONG,
-    pub LastExceptionFromRip: DWORDLONG,
+    DebugControl: DWORDLONG,
+    LastBranchToRip: DWORDLONG,
+    LastBranchFromRip: DWORDLONG,
+    LastExceptionToRip: DWORDLONG,
+    LastExceptionFromRip: DWORDLONG,
   }
   extern "system" {
     fn GetModuleHandleExW(
@@ -151,7 +178,8 @@ pub mod win64 {
   }
 
   pub fn trace() -> String {
-    let mut frame_addrs = vec![];
+    let mut encoded = Vec::new();
+
     unsafe {
       let mut context = core::mem::zeroed::<CONTEXT>();
       RtlCaptureContext(&mut context);
@@ -165,7 +193,17 @@ pub mod win64 {
           break;
         }
 
-        frame_addrs.push(ip as usize);
+        let addr = ip as usize;
+        let mut handle = std::ptr::null_mut();
+        const GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS: u32 = 0x4;
+        GetModuleHandleExW(
+          GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+          addr as _,
+          &mut handle,
+        );
+
+        let addr = addr - handle as usize;
+        encode_vlq(addr as i32, &mut encoded);
 
         let mut hnd_data = 0usize;
         let mut est_frame = 0;
@@ -185,23 +223,7 @@ pub mod win64 {
       }
     }
 
-    let mut encoded = Vec::new();
-    for addr in frame_addrs {
-      let mut handle = std::ptr::null_mut();
-      const GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS: u32 = 0x4;
-      unsafe {
-        GetModuleHandleExW(
-          GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-          addr as _,
-          &mut handle,
-        );
-      }
-
-      let addr = addr - handle as usize;
-      vlq::encode(addr as i64, &mut encoded).unwrap();
-    }
-
-    let mut b64 = String::from_utf8(encoded).unwrap();
-    b64
+    // Safety: `encoded` is guaranteed to be valid UTF-8
+    unsafe { String::from_utf8_unchecked(encoded) }
   }
 }
