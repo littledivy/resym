@@ -61,7 +61,7 @@ pub mod win64 {
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   const VLQ_MAX_IN_BYTES: usize = 7;
 
-  fn encode_vlq<W>(value: i32, writer: &mut Vec<u8>) {
+  fn encode_vlq(value: i32, writer: &mut Vec<u8>) {
     let mut vlq: u32 = if value >= 0 {
       (value as u32) << 1
     } else {
