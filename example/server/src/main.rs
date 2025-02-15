@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use axum::{extract::Path, routing::get, Router};
-use resym::{symbolicate, DefaultFormatter};
+use axum::{extract::Path, response::Html, routing::get, Router};
+use resym::{symbolicate, Formatter};
+use std::io::Write;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -22,18 +23,83 @@ mod error;
 
 use error::ApiError;
 
+struct HtmlFormatter<'a> {
+  writer: &'a mut Vec<u8>,
+}
+
+impl<'a> HtmlFormatter<'a> {
+  fn new(writer: &'a mut Vec<u8>) -> Self {
+    Self { writer }
+  }
+}
+
+impl Formatter for HtmlFormatter<'_> {
+  fn write_frames(
+    &mut self,
+    _: u32,
+    frame: &resym::pdb_addr2line::FunctionFrames,
+  ) {
+    for frame in &frame.frames {
+      let source_str =
+        maybe_link_source(frame.file.as_deref().unwrap_or("??"), frame.line);
+      let _ = writeln!(
+        self.writer,
+        "     <li>{} at {}</li>",
+        frame.function.as_deref().unwrap_or("<unknown>"),
+        source_str,
+      );
+    }
+  }
+}
+
+fn maybe_link_source(file: &str, line: Option<u32>) -> String {
+  let file = file.replace("\\", "/");
+  let line_str = line.map(|l| l.to_string()).unwrap_or("??".to_string());
+
+  // rustc
+  if file.starts_with("/rustc/") {
+    let mut parts = file.splitn(4, '/');
+    let _ = parts.next();
+    let _ = parts.next();
+    let commit_hash = parts.next().unwrap_or("??");
+    let actual_path = parts.next().unwrap_or("??");
+
+    return format!(
+        "<a target='_blank' href='https://github.com/rust-lang/rust/tree/{}/{}#L{}'>{}</a>",
+        commit_hash, actual_path, line_str, actual_path
+      );
+  }
+
+  let mut parts = file.split('/');
+  // deno
+  while let Some(part) = parts.next() {
+    if part == "deno" {
+      let actual_path = parts.collect::<Vec<_>>().join("/");
+
+      return format!(
+        "<a target='_blank' href='https://github.com/denoland/deno/blob/main/{}#L{}'>{}</a>",
+        actual_path, line_str, actual_path
+      );
+    }
+  }
+
+  format!("{}:{}", file, line_str,)
+}
+
+// http://localhost:1234/0.0.0/uhvCs8Z220xrB-zzxrB-3ixrBs4xxrBoh-4zBqvzB2ujB8tgBiiuByguvrB0_tBy4zBwplmzBut0L4y_uB
+
 // GET /{version}/{frame_data}
 async fn get_stack_trace(
   Path((_version, address)): Path<(String, String)>,
-) -> Result<String, ApiError> {
+) -> Result<Html<String>, ApiError> {
   let mut input = address.as_bytes().iter().copied();
   let stream = std::fs::File::open("example.pdb").unwrap();
 
   let mut writer = Vec::new();
-  symbolicate(stream, &mut input, DefaultFormatter::new(&mut writer))
+  symbolicate(stream, &mut input, HtmlFormatter::new(&mut writer))
     .map_err(ApiError::Resym)?;
 
-  Ok(String::from_utf8(writer).unwrap())
+  Ok(Html(String::from_utf8(writer).unwrap()))
 }
 
 #[tokio::main]
