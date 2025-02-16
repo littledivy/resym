@@ -123,8 +123,18 @@ pub fn trace() -> String {
         break;
       }
 
-      let addr = ip - base;
+      let addr = ip as usize;
+      let mut handle = std::ptr::null_mut();
+      const GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS: u32 = 0x4;
+      GetModuleHandleExW(
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+        addr as _,
+        &mut handle,
+      );
+
+      let addr = addr - handle as usize;
       println!("addr: {:#x}", addr);
+      dbg!(base, handle as usize);
       vlq_encode(addr as i32, &mut encoded);
 
       let mut hnd_data = 0usize;
