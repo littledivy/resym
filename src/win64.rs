@@ -124,6 +124,7 @@ pub fn trace() -> String {
       }
 
       let addr = ip - base;
+      println!("addr: {:#x}", addr);
       vlq_encode(addr as i32, &mut encoded);
 
       let mut hnd_data = 0usize;
