@@ -133,8 +133,6 @@ pub fn trace() -> String {
       );
 
       let addr = addr - handle as usize;
-      println!("addr: {:#x}", addr);
-      dbg!(base, handle as usize);
       vlq_encode(addr as i32, &mut encoded);
 
       let mut hnd_data = 0usize;

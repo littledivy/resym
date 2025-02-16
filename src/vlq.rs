@@ -14,44 +14,46 @@
 use std::io::{self, Error, ErrorKind};
 
 fn base64_lut(byte: u8) -> u8 {
-    match byte {
-        b'A'..=b'Z' => byte - b'A',
-        b'a'..=b'z' => byte - b'a' + 26,
-        b'0'..=b'9' => byte - b'0' + 52,
-        b'-' => 62,
-        b'_' => 63,
-        _ => 0,
-    }
+  match byte {
+    b'A'..=b'Z' => byte - b'A',
+    b'a'..=b'z' => byte - b'a' + 26,
+    b'0'..=b'9' => byte - b'0' + 52,
+    b'-' => 62,
+    b'_' => 63,
+    _ => 0,
+  }
 }
 
 pub fn vlq_decode<I>(iter: &mut I) -> Result<i32, Error>
 where
-    I: Iterator<Item = u8>,
+  I: Iterator<Item = u8>,
 {
-    fn read_byte<I>(iter: &mut I) -> Result<u8, Error>
-    where
-        I: Iterator<Item = u8>,
-    {
-        iter.next().ok_or_else(|| Error::new(ErrorKind::UnexpectedEof, "unexpected EOF"))
-    }
+  fn read_byte<I>(iter: &mut I) -> Result<u8, Error>
+  where
+    I: Iterator<Item = u8>,
+  {
+    iter
+      .next()
+      .ok_or_else(|| Error::new(ErrorKind::UnexpectedEof, "unexpected EOF"))
+  }
 
-    let mut result = 0;
-    let mut shift = 0;
-    loop {
-        let byte = read_byte(iter)?;
-        let value = base64_lut(byte);
-        result |= ((value & 0b11111) as i32) << shift;
-        shift += 5;
-        if value & 0b100000 == 0 {
-            break;
-        }
+  let mut result = 0;
+  let mut shift = 0;
+  loop {
+    let byte = read_byte(iter)?;
+    let value = base64_lut(byte);
+    result |= ((value & 0b11111) as i32) << shift;
+    shift += 5;
+    if value & 0b100000 == 0 {
+      break;
     }
+  }
 
-    Ok(if result & 1 == 1 {
-        -(result >> 1)
-    } else {
-        result >> 1
-    })
+  Ok(if result & 1 == 1 {
+    -(result >> 1)
+  } else {
+    result >> 1
+  })
 }
 
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
