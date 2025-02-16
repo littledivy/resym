@@ -47,4 +47,5 @@ fn handle_request(mut trace_str: Vec<u8>) -> Result<String> {
 }
 ```
 
-![image](https://github.com/user-attachments/assets/6038069b-acbc-4ce6-b6bf-4849b7c9edb2)
+![image](https://github.com/user-attachments/assets/453a598d-c668-4423-a329-8b4b70c6f4a6)
+
