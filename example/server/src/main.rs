@@ -31,6 +31,7 @@ const CSS: &str = include_str!("style.css");
 
 impl<'a> HtmlFormatter<'a> {
   fn new(writer: &'a mut Vec<u8>) -> Self {
+    let _ = writeln!(writer, "<style>{}</style>", CSS);
     Self { writer }
   }
 }
@@ -41,13 +42,12 @@ impl Formatter for HtmlFormatter<'_> {
     addr: u32,
     frame: &resym::pdb_addr2line::FunctionFrames,
   ) {
-    writeln!(self.writer, "<style>{}</style>", CSS).unwrap();
     for frame in &frame.frames {
       let source_str =
         maybe_link_source(frame.file.as_deref().unwrap_or("??"), frame.line);
       let _ = writeln!(
         self.writer,
-        "     <li>{:x}: <code>{}</code> at {}</li>",
+        "     <li>0x{:x}: <code>{}</code> at {}</li>",
         addr,
         frame.function.as_deref().unwrap_or("<unknown>"),
         source_str,
@@ -90,7 +90,7 @@ fn maybe_link_source(file: &str, line: Option<u32>) -> String {
   format!("{}:{}", file, line_str,)
 }
 
-// http://localhost:1234/0.0.0/uhvCs8Z220xrB-zzxrB-3ixrBs4xxrBoh-4zBqvzB2ujB8tgBiiuByguvrB0_tBy4zBwplmzBut0L4y_uB
+// http://localhost:1234/0.0.0/upvCsknB2z8xrB-w7xrB-0qxrBs15xrBonm5zBqsuB2sjC8gMiqiCylyvrB0niCy1uBwltmzBut0L4y_uB
 
 // GET /{version}/{frame_data}
 async fn get_stack_trace(
