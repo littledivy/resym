@@ -27,6 +27,8 @@ struct HtmlFormatter<'a> {
   writer: &'a mut Vec<u8>,
 }
 
+const CSS: &str = include_str!("style.css");
+
 impl<'a> HtmlFormatter<'a> {
   fn new(writer: &'a mut Vec<u8>) -> Self {
     Self { writer }
@@ -36,15 +38,17 @@ impl<'a> HtmlFormatter<'a> {
 impl Formatter for HtmlFormatter<'_> {
   fn write_frames(
     &mut self,
-    _: u32,
+    addr: u32,
     frame: &resym::pdb_addr2line::FunctionFrames,
   ) {
+    writeln!(self.writer, "<style>{}</style>", CSS).unwrap();
     for frame in &frame.frames {
       let source_str =
         maybe_link_source(frame.file.as_deref().unwrap_or("??"), frame.line);
       let _ = writeln!(
         self.writer,
-        "     <li>{} at {}</li>",
+        "     <li>{:x}: <code>{}</code> at {}</li>",
+        addr,
         frame.function.as_deref().unwrap_or("<unknown>"),
         source_str,
       );
@@ -65,8 +69,8 @@ fn maybe_link_source(file: &str, line: Option<u32>) -> String {
     let actual_path = parts.next().unwrap_or("??");
 
     return format!(
-        "<a target='_blank' href='https://github.com/rust-lang/rust/tree/{}/{}#L{}'>{}</a>",
-        commit_hash, actual_path, line_str, actual_path
+        "<a target='_blank' href='https://github.com/rust-lang/rust/tree/{}/{}#L{}'>{}:{}</a>",
+        commit_hash, actual_path, line_str, actual_path, line_str
       );
   }
 
@@ -77,8 +81,8 @@ fn maybe_link_source(file: &str, line: Option<u32>) -> String {
       let actual_path = parts.collect::<Vec<_>>().join("/");
 
       return format!(
-        "<a target='_blank' href='https://github.com/denoland/deno/blob/main/{}#L{}'>{}</a>",
-        actual_path, line_str, actual_path
+        "<a target='_blank' href='https://github.com/denoland/deno/blob/main/{}#L{}'>{}:{}</a>",
+        actual_path, line_str, actual_path, line_str
       );
     }
   }

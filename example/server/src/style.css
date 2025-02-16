@@ -1,0 +1,16 @@
+body {
+  font-family: monospace;
+}
+
+code {
+  font-family: monospace;
+  background-color: #f4f4f4;
+  padding: 5px;
+  border-radius: 5px;
+}
+
+li {
+  margin-bottom: 15px;
+  line-height: 1.5;
+  list-style-type: none;
+}
